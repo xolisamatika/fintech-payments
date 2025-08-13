@@ -27,7 +27,7 @@ public class AccountsController {
         return new AccountResponse(account.getId(), account.getBalance(), account.getVersion());
     }
 
-    @GetMapping("/accounts/{id}")
+    @GetMapping("/{id}")
     public AccountResponse get(@PathVariable Long id) {
         Account a = service.fetchAccountById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new AccountResponse(a.getId(), a.getBalance(), a.getVersion());
