@@ -1,4 +1,3 @@
 rootProject.name = 'fintech-payments'
 
 include 'ledger-service', 'transfer-service'
-
