@@ -1,6 +1,6 @@
 package com.example.ledger.controller;
 
-import com.example.ledger.dto.TransferRequest;
+import com.example.common.dto.TransferRequest;
 import com.example.ledger.service.LedgerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

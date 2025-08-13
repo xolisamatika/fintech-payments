@@ -1,9 +1,9 @@
 package com.example.ledger.service;
 
-import com.example.ledger.dto.TransferRequest;
-import com.example.ledger.model.Account;
-import com.example.ledger.model.LedgerEntry;
-import com.example.ledger.model.ProcessedTransfer;
+import com.example.common.dto.TransferRequest;
+import com.example.common.model.Account;
+import com.example.common.model.LedgerEntry;
+import com.example.common.model.ProcessedTransfer;
 import com.example.ledger.repository.AccountRepository;
 import com.example.ledger.repository.LedgerEntryRepository;
 import com.example.ledger.repository.ProcessedTransferRepository;
