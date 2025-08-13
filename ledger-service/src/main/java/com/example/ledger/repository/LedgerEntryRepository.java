@@ -1,6 +1,6 @@
 package com.example.ledger.repository;
 
-import com.example.ledger.model.LedgerEntry;
+import com.example.common.model.LedgerEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

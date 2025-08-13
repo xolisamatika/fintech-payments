@@ -1,6 +1,6 @@
 package com.example.ledger.repository;
 
-import com.example.ledger.model.ProcessedTransfer;
+import com.example.common.model.ProcessedTransfer;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,8 +1,8 @@
 package com.example.ledger.controller;
 
-import com.example.ledger.dto.AccountResponse;
-import com.example.ledger.dto.CreateAccountRequest;
-import com.example.ledger.model.Account;
+import com.example.common.dto.AccountResponse;
+import com.example.common.dto.CreateAccountRequest;
+import com.example.common.model.Account;
 import com.example.ledger.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

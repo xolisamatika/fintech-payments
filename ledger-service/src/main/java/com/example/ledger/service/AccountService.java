@@ -1,6 +1,6 @@
 package com.example.ledger.service;
 
-import com.example.ledger.model.Account;
+import com.example.common.model.Account;
 import com.example.ledger.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

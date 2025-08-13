@@ -1,6 +1,6 @@
 package com.example.ledger.repository;
 
-import com.example.ledger.model.Account;
+import com.example.common.model.Account;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

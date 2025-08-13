@@ -1,4 +1,4 @@
-package com.example.ledger.dto;
+package com.example.common.dto;
 
 import java.math.BigDecimal;
 
