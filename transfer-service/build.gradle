@@ -9,6 +9,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-webflux' // for WebClient
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
 
     // Circuit breaker
     implementation "io.github.resilience4j:resilience4j-spring-boot3:${resilience4jVersion}"
@@ -22,7 +24,7 @@ dependencies {
     // In-memory DB for dev/tests (swap to postgres via env)
     runtimeOnly 'com.h2database:h2'
     // Or for Postgres:
-    // runtimeOnly 'org.postgresql:postgresql'
+     runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

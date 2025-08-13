@@ -2,9 +2,10 @@ server:
   port: 8081
 spring:
   datasource:
-    url: jdbc:h2:mem:ledger;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/payments
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,8 +14,8 @@ spring:
     serialization:
       WRITE_DATES_AS_TIMESTAMPS: false
 springdoc:
-  api-docs.enabled: true
-  swagger-ui.enabled: true
+  api-docs.enabled: false
+  swagger-ui.enabled: false
 
   management:
     endpoints:

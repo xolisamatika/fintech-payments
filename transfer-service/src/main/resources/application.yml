@@ -5,9 +5,10 @@ ledger:
     url: http://localhost:8081
 spring:
   datasource:
-    url: jdbc:h2:mem:transfer;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
-    username: sa
-    password:
+    url: jdbc:postgresql://localhost:5432/payments
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
@@ -25,8 +26,8 @@ resilience4j:
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
 springdoc:
-  api-docs.enabled: true
-  swagger-ui.enabled: true
+  api-docs.enabled: false
+  swagger-ui.enabled: false
 logging:
   level:
     root: INFO
