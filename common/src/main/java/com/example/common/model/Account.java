@@ -1,13 +1,17 @@
 package com.example.common.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "accounts")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Account {
@@ -17,5 +21,6 @@ public class Account {
     @Version
     private Long version; // optimistic locking
 
+    @Column(nullable = false)
     private BigDecimal balance;
 }
