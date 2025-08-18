@@ -10,12 +10,25 @@ java {
     }
 }
 
+
+ext {
+    springBootVersion = '3.3.2'
+    resilience4jVersion = '2.2.0'
+    springdocVersion = '2.5.0'
+}
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
 
     group = 'com.example'
     version = '0.0.1-SNAPSHOT'
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:${rootProject.ext.springBootVersion}"
+        }
+    }
 
     repositories {
         mavenCentral()
@@ -32,10 +45,4 @@ subprojects {
     test {
         useJUnitPlatform()
     }
-}
-
-ext {
-    springBootVersion = '3.3.2'
-    resilience4jVersion = '2.2.0'
-    springdocVersion = '2.5.0'
 }

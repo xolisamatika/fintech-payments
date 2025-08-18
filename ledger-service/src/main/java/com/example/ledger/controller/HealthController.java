@@ -1,6 +1,5 @@
 package com.example.ledger.controller;
 
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.actuate.health.HealthEndpoint;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,89 +1,105 @@
 package com.example.ledger.service;
 
-import com.example.common.dto.TransferRequest;
 import com.example.common.model.Account;
-import com.example.common.model.LedgerEntry;
-import com.example.common.model.ProcessedTransfer;
+import com.example.ledger.exception.AccountNotFoundException;
+import com.example.ledger.exception.InsufficientFundsException;
 import com.example.ledger.repository.AccountRepository;
 import com.example.ledger.repository.LedgerEntryRepository;
-import com.example.ledger.repository.ProcessedTransferRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.math.BigDecimal;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LedgerServiceTest {
 
-    private AccountRepository accountRepo;
-    private LedgerEntryRepository ledgerRepo;
-    private ProcessedTransferRepository transferRepo;
-    private LedgerService service;
+    private AccountRepository accountRepository;
+    private LedgerEntryRepository ledgerEntryRepository;
+    private LedgerService ledgerService;
 
     @BeforeEach
-    void setUp() {
-        accountRepo = mock(AccountRepository.class);
-        ledgerRepo = mock(LedgerEntryRepository.class);
-        transferRepo = mock(ProcessedTransferRepository.class);
-        service = new LedgerService(accountRepo, ledgerRepo, transferRepo);
+    void setup() {
+        accountRepository = Mockito.mock(AccountRepository.class);
+        ledgerEntryRepository = Mockito.mock(LedgerEntryRepository.class);
+        ledgerService = new LedgerService(accountRepository, ledgerEntryRepository);
     }
 
     @Test
-    void applyTransfer_successful() {
-        var from = new Account(1L, 0L, BigDecimal.valueOf(100));
-        var to = new Account(2L, 0L,BigDecimal.valueOf(50));
+    void transfer_successful() {
+        Account from = new Account();
+        from.setId(1L);
+        from.setBalance(BigDecimal.valueOf(200));
 
-        when(accountRepo.findById(1L)).thenReturn(Optional.of(from));
-        when(accountRepo.findById(2L)).thenReturn(Optional.of(to));
-        when(transferRepo.findByTransferId("transId")).thenReturn(Optional.empty());
+        Account to = new Account();
+        to.setId(2L);
+        to.setBalance(BigDecimal.valueOf(100));
 
-        TransferRequest req = new TransferRequest("transId", 1L, 2L, BigDecimal.valueOf(20));
-        boolean result = service.applyTransfer(req);
+        Mockito.when(ledgerEntryRepository.existsByTransferId("t1")).thenReturn(false);
+        Mockito.when(accountRepository.findById(1L)).thenReturn(Optional.of(from));
+        Mockito.when(accountRepository.findById(2L)).thenReturn(Optional.of(to));
 
-        assertTrue(result);
-        assertEquals(BigDecimal.valueOf(80), from.getBalance());
-        assertEquals(BigDecimal.valueOf(70), to.getBalance());
-        verify(ledgerRepo, times(2)).save(any(LedgerEntry.class));
-        verify(transferRepo).save(argThat(t -> t.getStatus() == ProcessedTransfer.Status.SUCCESS));
+        boolean result = ledgerService.transfer("t1", 1L, 2L, BigDecimal.valueOf(50));
+
+        assertThat(result).isTrue();
+        assertThat(from.getBalance()).isEqualTo(BigDecimal.valueOf(150));
+        assertThat(to.getBalance()).isEqualTo(BigDecimal.valueOf(150));
+
+        Mockito.verify(accountRepository).saveAll(Mockito.anyList());
+        Mockito.verify(ledgerEntryRepository).saveAll(Mockito.anyList());
     }
 
     @Test
-    void applyTransfer_insufficientFunds() {
-        var from = new Account(1L, 0L, BigDecimal.valueOf(10));
-        var to = new Account(2L, 0L, BigDecimal.valueOf(50));
+    void transfer_failsIfFromAccountNotFound() {
+        Mockito.when(ledgerEntryRepository.existsByTransferId("t1")).thenReturn(false);
+        Mockito.when(accountRepository.findById(1L)).thenReturn(Optional.empty());
 
-        when(accountRepo.findById(1L)).thenReturn(Optional.of(from));
-        when(accountRepo.findById(2L)).thenReturn(Optional.of(to));
-        when(transferRepo.findByTransferId("transId")).thenReturn(Optional.empty());
-
-        TransferRequest req = new TransferRequest("transId", 1L, 2L, BigDecimal.valueOf(20));
-        boolean result = service.applyTransfer(req);
-
-        assertFalse(result);
-        verify(transferRepo).save(argThat(t -> t.getStatus() == ProcessedTransfer.Status.FAILED));
+        assertThrows(AccountNotFoundException.class,
+                () -> ledgerService.transfer("t1", 1L, 2L, BigDecimal.TEN));
     }
 
     @Test
-    void applyTransfer_duplicateTransfer_returnsPreviousResult() {
-        ProcessedTransfer existing = new ProcessedTransfer();
-        existing.setStatus(ProcessedTransfer.Status.SUCCESS);
-        when(transferRepo.findByTransferId("transId")).thenReturn(Optional.of(existing));
+    void transfer_failsIfToAccountNotFound() {
+        Account from = new Account();
+        from.setId(1L);
+        from.setBalance(BigDecimal.valueOf(100));
 
-        TransferRequest req = new TransferRequest("transId", 1L, 2L, BigDecimal.valueOf(20));
-        boolean result = service.applyTransfer(req);
+        Mockito.when(ledgerEntryRepository.existsByTransferId("t1")).thenReturn(false);
+        Mockito.when(accountRepository.findById(1L)).thenReturn(Optional.of(from));
+        Mockito.when(accountRepository.findById(2L)).thenReturn(Optional.empty());
 
-        assertTrue(result);
-        verifyNoInteractions(accountRepo);
+        assertThrows(AccountNotFoundException.class,
+                () -> ledgerService.transfer("t1", 1L, 2L, BigDecimal.TEN));
     }
 
     @Test
-    void applyTransfer_invalidAmount_throwsException() {
-        TransferRequest req = new TransferRequest("transId", 1L, 2L, BigDecimal.ZERO);
-        when(transferRepo.findByTransferId("transId")).thenReturn(Optional.empty());
+    void transfer_failsIfInsufficientFunds() {
+        Account from = new Account();
+        from.setId(1L);
+        from.setBalance(BigDecimal.valueOf(20));
 
-        assertThrows(IllegalArgumentException.class, () -> service.applyTransfer(req));
+        Account to = new Account();
+        to.setId(2L);
+        to.setBalance(BigDecimal.valueOf(50));
+
+        Mockito.when(ledgerEntryRepository.existsByTransferId("t1")).thenReturn(false);
+        Mockito.when(accountRepository.findById(1L)).thenReturn(Optional.of(from));
+        Mockito.when(accountRepository.findById(2L)).thenReturn(Optional.of(to));
+
+        assertThrows(InsufficientFundsException.class,
+                () -> ledgerService.transfer("t1", 1L, 2L, BigDecimal.valueOf(100)));
+    }
+
+    @Test
+    void transfer_isIdempotent() {
+        Mockito.when(ledgerEntryRepository.existsByTransferId("t1")).thenReturn(true);
+
+        boolean result = ledgerService.transfer("t1", 1L, 2L, BigDecimal.valueOf(50));
+
+        assertThat(result).isTrue();
+        Mockito.verifyNoInteractions(accountRepository);
     }
 }

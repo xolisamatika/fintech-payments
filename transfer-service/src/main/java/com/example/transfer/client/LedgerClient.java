@@ -1,34 +1,34 @@
 package com.example.transfer.client;
 
+import com.example.common.dto.TransferRequest;
+import com.example.common.dto.TransferResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class LedgerClient {
-    private final WebClient client;
+    private final WebClient ledgerWebClient;
 
-    public LedgerClient(WebClient.Builder builder, @Value("${ledger.service.url}") String baseUrl) {
-        this.client = builder.baseUrl(baseUrl).build();
-    }
+    @CircuitBreaker(name = "ledger", fallbackMethod = "fallback")
+    public Mono<TransferResponse> transfer(String transferId, Long from, Long to, BigDecimal amount) {
 
-    @CircuitBreaker(name="ledger", fallbackMethod = "fallback")
-    public Mono<Map> transfer(String requestId, String transferId, Long from, Long to, BigDecimal amount) {
-        return client.post().uri("/ledger/transfer")
-                .header("X-Request-Id", requestId)
-                .bodyValue(Map.of("transferId", transferId, "fromAccountId", from, "toAccountId", to, "amount", amount))
+        return ledgerWebClient.post()
+                .uri("/ledger/transfer")
+                .bodyValue(new TransferRequest(transferId, from, to, amount))
                 .retrieve()
-                .onStatus(s -> s.is4xxClientError() || s.is5xxServerError(),
-                        rsp -> rsp.bodyToMono(String.class).map(msg -> new RuntimeException("Ledger error: " + msg)))
-                .bodyToMono(Map.class);
+                .bodyToMono(TransferResponse.class)
+                .doOnNext(r -> log.info("Got response from Ledger: {}", r));
     }
 
-    private Mono<Map> fallback(String requestId, String transferId, Long from, Long to, BigDecimal amount, Throwable ex) {
-        return Mono.error(new IllegalStateException("Ledger circuit/failure", ex));
+    private Mono<TransferResponse> fallback(String transferId, Long from, Long to, BigDecimal amount, Throwable ex) {
+        return Mono.just(new TransferResponse(transferId, false, ex.getLocalizedMessage()));
     }
 }

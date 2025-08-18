@@ -6,6 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> {
-
-    boolean existsByTransferId(String transferId);  // for idempotency
+    boolean existsByTransferId(String transferId);
 }

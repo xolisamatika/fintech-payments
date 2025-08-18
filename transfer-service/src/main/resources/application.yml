@@ -1,8 +1,20 @@
 server:
   port: 8080
+
 ledger:
   service:
     url: http://localhost:8081
+    timeout-ms: 3000
+
+resilience4j.circuitbreaker:
+  instances:
+    ledger:
+      register-health-indicator: true
+      sliding-window-size: 10
+      failure-rate-threshold: 50
+      wait-duration-in-open-state: 5s
+      permitted-number-of-calls-in-half-open-state: 3
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/payments
@@ -32,3 +44,15 @@ logging:
   level:
     root: INFO
     io.github.resilience4j: INFO
+
+expired-transfers-scheduler:
+  enabled: true
+  cron: "0 0 * * * *"
+  ttl-hours: 24
+
+batch:
+  core-pool-size: 10
+  max-pool-size: 20
+  queue-capacity: 100
+
+

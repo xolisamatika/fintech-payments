@@ -1,5 +1,12 @@
 package com.example.common.dto;
 
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
-public record TransferRequest(String transferId, Long fromAccountId, Long toAccountId, BigDecimal amount) { }
+import java.math.BigDecimal;
+public record TransferRequest(
+        @NotNull String transferId,
+        @NotNull Long fromAccountId,
+        @NotNull Long toAccountId,
+        @NotNull @Positive BigDecimal amount
+) {}

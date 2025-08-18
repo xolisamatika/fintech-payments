@@ -18,8 +18,4 @@ dependencies {
     // OpenAPI/Swagger
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 
-    // Bean validation
-    implementation 'jakarta.validation:jakarta.validation-api'
-
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

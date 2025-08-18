@@ -1,7 +1,5 @@
 package com.example.ledger.controller;
 
-import com.example.common.dto.TransferRequest;
-import com.example.common.dto.TransferResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,12 +7,10 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 
-import java.math.BigDecimal;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class LedgerControllerIT {
+class HealthControllerIT {
 
     @LocalServerPort
     private int port;
@@ -23,17 +19,14 @@ class LedgerControllerIT {
     private TestRestTemplate restTemplate;
 
     @Test
-    void transfer_success() {
-        TransferRequest req = new TransferRequest("t100", 1L, 2L, BigDecimal.valueOf(50));
-
-        ResponseEntity<TransferResponse> response = restTemplate.postForEntity(
-                "http://localhost:" + port + "/ledger/transfer",
-                req,
-                TransferResponse.class
+    void getHealth_shouldReturnUp() {
+        ResponseEntity<HealthController.HealthResponse> response = restTemplate.getForEntity(
+                "http://localhost:" + port + "/health",
+                HealthController.HealthResponse.class
         );
 
-        assertThat(response.getStatusCode()).isIn(HttpStatus.OK, HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().transferId()).isEqualTo("t100");
+        assertThat(response.getBody().status()).isEqualTo("UP");
     }
 }

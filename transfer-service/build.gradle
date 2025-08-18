@@ -25,6 +25,5 @@ dependencies {
     runtimeOnly 'com.h2database:h2'
     // Or for Postgres:
      runtimeOnly 'org.postgresql:postgresql'
-
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test:3.5.6'
 }

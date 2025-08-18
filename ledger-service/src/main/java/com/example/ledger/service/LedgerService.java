@@ -1,18 +1,17 @@
 package com.example.ledger.service;
 
-import com.example.common.dto.TransferRequest;
 import com.example.common.model.Account;
 import com.example.common.model.LedgerEntry;
-import com.example.common.model.ProcessedTransfer;
+import com.example.ledger.exception.AccountNotFoundException;
+import com.example.ledger.exception.InsufficientFundsException;
 import com.example.ledger.repository.AccountRepository;
 import com.example.ledger.repository.LedgerEntryRepository;
-import com.example.ledger.repository.ProcessedTransferRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -21,83 +20,28 @@ public class LedgerService {
 
     private final AccountRepository accountRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
-    private final ProcessedTransferRepository transferRepository;
 
     @Transactional
-    public boolean applyTransfer(TransferRequest req) {
-        if (isAlreadyProcessed(req.transferId())) {
-            return transferRepository.findByTransferId(req.transferId())
-                    .map(t -> ProcessedTransfer.Status.SUCCESS.equals(t.getStatus()))
-                    .orElse(false);
-        }
+    public boolean transfer(String transferId, Long fromId, Long toId, BigDecimal amount) {
+        if (ledgerEntryRepository.existsByTransferId(transferId)) return true;
 
-        validateAmount(req.amount());
-        List<Account> accounts = lockAccounts(req.fromAccountId(), req.toAccountId());
-        Account from = accounts.stream().filter(a -> a.getId().equals(req.fromAccountId())).findFirst().orElseThrow();
-        Account to   = accounts.stream().filter(a -> a.getId().equals(req.toAccountId())).findFirst().orElseThrow();
+        Account from = accountRepository.findById(fromId)
+                .orElseThrow(() -> new AccountNotFoundException("From account not found"));
+        Account to = accountRepository.findById(toId)
+                .orElseThrow(() -> new AccountNotFoundException("To account not found"));
 
-        if (from.getBalance().compareTo(req.amount()) < 0) {
-            recordFailure(req.transferId(), "INSUFFICIENT_FUNDS");
-            return false;
-        }
+        if (from.getBalance().compareTo(amount) < 0)
+            throw new InsufficientFundsException("Insufficient balance");
 
-        transferFunds(from, to, req.amount());
-        recordLedgerEntries(req, from.getId(), to.getId(), req.amount());
-        recordSuccess(req.transferId());
-        return true;
-    }
-
-    private boolean isAlreadyProcessed(String transferId) {
-        return transferRepository.findByTransferId(transferId).isPresent();
-    }
-
-    private void validateAmount(BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) <= 0)
-            throw new IllegalArgumentException("amount > 0 required");
-    }
-
-    private List<Account> lockAccounts(Long id1, Long id2) {
-        return List.of(
-                accountRepository.findById(Math.min(id1, id2)).orElseThrow(),
-                accountRepository.findById(Math.max(id1, id2)).orElseThrow()
-        );
-    }
-
-    private void transferFunds(Account from, Account to, BigDecimal amount) {
         from.setBalance(from.getBalance().subtract(amount));
         to.setBalance(to.getBalance().add(amount));
-        accountRepository.save(from);
-        accountRepository.save(to);
-    }
 
-    private void recordLedgerEntries(TransferRequest req, Long fromId, Long toId, BigDecimal amount) {
-        ledgerEntryRepository.save(entry(req, fromId, amount, LedgerEntry.EntryType.DEBIT));
-        ledgerEntryRepository.save(entry(req, toId,   amount, LedgerEntry.EntryType.CREDIT));
-    }
+        accountRepository.saveAll(List.of(from, to));
 
-    private LedgerEntry entry(TransferRequest r, Long accountId, BigDecimal amount, LedgerEntry.EntryType type) {
-        LedgerEntry e = new LedgerEntry();
-        e.setTransferId(r.transferId());
-        e.setAccountId(accountId);
-        e.setAmount(amount);
-        e.setType(type);
-        return e;
-    }
-
-    private void recordFailure(String transferId, String error) {
-        ProcessedTransfer transfer = new ProcessedTransfer();
-        transfer.setTransferId(transferId);
-        transfer.setStatus(ProcessedTransfer.Status.FAILED);
-        transfer.setError(error);
-        transfer.setCreatedAt(Instant.now());
-        transferRepository.save(transfer);
-    }
-
-    private void recordSuccess(String transferId) {
-        ProcessedTransfer transfer = new ProcessedTransfer();
-        transfer.setTransferId(transferId);
-        transfer.setStatus(ProcessedTransfer.Status.SUCCESS);
-        transfer.setCreatedAt(Instant.now());
-        transferRepository.save(transfer);
+        ledgerEntryRepository.saveAll(List.of(
+                new LedgerEntry(null, transferId, fromId, amount, LedgerEntry.EntryType.DEBIT, LocalDateTime.now()),
+                new LedgerEntry(null, transferId, toId, amount, LedgerEntry.EntryType.CREDIT, LocalDateTime.now())
+        ));
+        return true;
     }
 }

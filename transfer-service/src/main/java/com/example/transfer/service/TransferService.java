@@ -5,78 +5,77 @@ import com.example.common.dto.TransferResponse;
 import com.example.common.model.Transfer;
 import com.example.transfer.client.LedgerClient;
 import com.example.transfer.repository.TransferRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.stream.IntStream;
+
+import static com.example.transfer.config.AsyncConfiguration.JOB_ASYNC_EXECUTOR;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class TransferService {
-    private final TransferRepository repo;
+    private final TransferRepository transferRepository;
     private final LedgerClient ledger;
-    private final Logger log = LoggerFactory.getLogger(getClass());
+
+    @Value("${expired-transfers-scheduler.ttl-hours}")
+    private int ttlHours;
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Transfer get(String id) {
+        return transferRepository.findByTransferId(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+    }
 
     @Transactional
-    public TransferResponse createOrReplay(String idempotencyKey, CreateTransferRequest req, String requestId) {
-        // fast path: existing response by Idempotency-Key
-        var existing = repo.findByClientKey(idempotencyKey);
-        if (existing.isPresent()) {
-            var t = existing.get();
-            return new TransferResponse(t.getTransferId(), t.getStatus(), t.getLastError());
-        }
+    public Transfer transfer(String idempotencyKey, Long from, Long to, BigDecimal amount) {
+        return transferRepository.findByIdempotencyKey(idempotencyKey).orElseGet(() -> {
+            String transferId = UUID.randomUUID().toString();
+            Transfer t = new Transfer(null, idempotencyKey, "PENDING", transferId, Instant.now());
+            transferRepository.save(t);
 
-        // create NEW transfer row with server transferId
-        var t = new Transfer();
-        t.setClientKey(idempotencyKey);
-        t.setTransferId(UUID.randomUUID().toString());
-        t.setFromAccountId(req.fromAccountId());
-        t.setToAccountId(req.toAccountId());
-        t.setAmount(req.amount());
-        t.setStatus("NEW");
-        repo.saveAndFlush(t); // hold idempotency
-
-        try {
-            // single call to Ledger Service (atomic inside Ledger)
-            ledger.transfer(requestId, t.getTransferId(), t.getFromAccountId(), t.getToAccountId(), t.getAmount()).block();
-            t.setStatus("SUCCESS");
-            t.setLastError(null);
-        } catch (Exception ex) {
-            t.setStatus("FAILED");
-            t.setLastError(ex.getMessage());
-            log.error("Ledger call failed transferId={}", t.getTransferId(), ex);
-        }
-        // persist final status
-        return new TransferResponse(repo.save(t).getTransferId(), t.getStatus(), t.getLastError());
+            try {
+                TransferResponse transferResponse = ledger.transfer(t.getTransferId(), from, to, amount).block();
+                log.info("Response {}", transferResponse);
+                assert transferResponse != null;
+                t.setStatus(transferResponse.status() ? "SUCCESS" : "FAILURE");
+            } catch (Exception e) {
+                t.setStatus("FAILURE");
+            }
+            return transferRepository.save(t);
+        });
     }
 
-    @Transactional()
-    public TransferResponse get(String id) {
-        var t = repo.findByTransferId(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return new TransferResponse(t.getTransferId(), t.getStatus(), t.getLastError());
+    @Async(JOB_ASYNC_EXECUTOR)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public CompletableFuture<Integer> cleanUpExpiredTransfers() {
+        log.info("Closing expired transfers");
+        int deleteExpired = transferRepository.deleteExpired(Instant.now().minus(Duration.ofHours(ttlHours)));
+
+        return CompletableFuture.completedFuture(deleteExpired);
     }
 
-    // batch: parallel processing
-    public List<TransferResponse> processBatch(String requestId, List<CreateTransferRequest> batch, String idempotencyKeyPrefix) {
-        if (batch.size() > 20) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "max 20");
-        var exec = Executors.newFixedThreadPool(Math.min(8, batch.size()));
-        try {
-            return IntStream.range(0, batch.size()).mapToObj(i ->
-                    CompletableFuture.supplyAsync(() ->
-                            createOrReplay(idempotencyKeyPrefix + "-" + i, batch.get(i), requestId), exec)
-            ).map(CompletableFuture::join).toList();
-        } finally {
-            exec.shutdown();
-        }
+    @Async(JOB_ASYNC_EXECUTOR)
+    public CompletableFuture<List<Transfer>> batchTransfers(String idempotencyKeyPrefix, List<CreateTransferRequest> batch) {
+        List<CompletableFuture<Transfer>> futures = batch.stream()
+                .map(r -> CompletableFuture.supplyAsync(() ->
+                        transfer(idempotencyKeyPrefix, r.fromAccountId(), r.toAccountId(), r.amount())))
+                .toList();
+        return CompletableFuture.completedFuture(futures.stream().map(CompletableFuture::join).toList());
     }
 }
 

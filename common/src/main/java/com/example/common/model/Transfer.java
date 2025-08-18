@@ -1,39 +1,30 @@
 package com.example.common.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name="transfers", uniqueConstraints = @UniqueConstraint(columnNames = "clientKey"))
-@Data
+@Table(name = "transfers", uniqueConstraints = @UniqueConstraint(columnNames = "idempotencyKey"))
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Transfer {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue
     private Long id;
 
-    @Column(nullable=false, unique=true)
-    private String clientKey; // Idempotency-Key
+    @Column(nullable = false)
+    private String idempotencyKey;
 
-    @Column(nullable=false, unique=true)
-    private String transferId; // server-assigned UUID
-
-    @Column(nullable=false)
-    private Long fromAccountId;
-
-    @Column(nullable=false)
-    private Long toAccountId;
-
-    @Column(nullable=false)
-    private BigDecimal amount;
-
-    @Column(nullable=false)
-    private String status; // NEW|SUCCESS|FAILED
-
-    @Column
-    private String lastError;
-
-    @Column(nullable=false, updatable=false)
-    private Instant createdAt = Instant.now();
+    @Column(nullable = false)
+    private String status;
+    @Column(nullable = false)
+    private String transferId;
+    @Column(nullable = false)
+    private Instant createdAt;
 }
